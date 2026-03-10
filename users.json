@@ -1,0 +1,6 @@
+[
+    {
+        "login": "marcin",
+        "password_hash": "scrypt:32768:8:1$ziQE252JI88pdANW$566aebb23c0c18fba88562b5b192cb9e974d997eac85c954bcb5077279e0c798446c68bf363e776a6ec03254571f9a35b76d45c0116148dbfddd629be01d1db0"
+    }
+]

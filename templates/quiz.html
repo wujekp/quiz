@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <title>Quiz</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #111;
+            color: white;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 2vh;
+        }
+
+        .container {
+            height: 50vh;
+            width: 60vw;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .topbar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .logout {
+            color: white;
+            text-decoration: none;
+            background: #444;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        #status {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        #question {
+            font-size: 26px;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        #image {
+            max-height: 25vh;
+            max-width: 100%;
+            object-fit: contain;
+            margin-bottom: 6px;
+            display: none;
+        }
+
+        #answers {
+            width: 100%;
+        }
+
+        .answer-btn {
+            display: block;
+            width: 100%;
+            margin: 5px auto;
+            padding: 10px;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #e0e0e0;
+            color: black;
+            text-align: left;
+        }
+
+        .selected {
+            background: yellow !important;
+            color: black !important;
+        }
+
+        .correct {
+            background: green !important;
+            color: white !important;
+        }
+
+        .wrong {
+            background: red !important;
+            color: white !important;
+        }
+
+        #nextBtn {
+            margin-top: 6px;
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+        }
+
+        #message {
+            height: 24px;
+            font-size: 18px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <div>Zalogowany: {{ username }}</div>
+            <a class="logout" href="/logout">Wyloguj</a>
+        </div>
+
+        <h2>Quiz</h2>
+        <div id="status"></div>
+        <div id="question"></div>
+        <img id="image" alt="Obrazek pytania">
+        <div id="answers"></div>
+        <button id="nextBtn" onclick="nextQuestion()">Następne pytanie</button>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        let questions = [];
+        let current = 0;
+        let selected = null;
+        let checked = false;
+        let score = 0;
+
+        async function loadQuestions() {
+            const response = await fetch("/api/questions");
+            const data = await response.json();
+
+            if (data.error) {
+                document.getElementById("question").innerText = "Błąd: " + data.error;
+                return;
+            }
+
+            questions = data;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            if (questions.length === 0) {
+                document.getElementById("question").innerText = "Brak pytań";
+                return;
+            }
+
+            if (current >= questions.length) {
+                document.getElementById("question").innerText =
+                    "Koniec testu. Wynik " + score + " / " + questions.length;
+                document.getElementById("answers").innerHTML = "";
+                document.getElementById("image").style.display = "none";
+                document.getElementById("nextBtn").style.display = "none";
+                return;
+            }
+
+            const q = questions[current];
+            selected = null;
+            checked = false;
+
+            document.getElementById("status").innerText =
+                "Pytanie " + (current + 1) + " z " + questions.length + " | Wynik " + score;
+
+            document.getElementById("question").innerText = q.Text;
+            document.getElementById("message").innerText = "";
+
+            const answers = document.getElementById("answers");
+            answers.innerHTML = "";
+
+            ["A", "B", "C", "D"].forEach(letter => {
+                const btn = document.createElement("button");
+                btn.className = "answer-btn";
+                btn.innerText = letter + ": " + q[letter];
+                btn.dataset.letter = letter;
+
+                btn.onclick = function () {
+                    if (checked) return;
+
+                    document.querySelectorAll(".answer-btn").forEach(b => b.classList.remove("selected"));
+                    btn.classList.add("selected");
+                    selected = letter;
+                };
+
+                answers.appendChild(btn);
+            });
+
+            const img = document.getElementById("image");
+
+            if (q.Image) {
+                img.src = "/images/" + q.Image;
+                img.style.display = "block";
+                img.onerror = function () {
+                    img.style.display = "none";
+                };
+            } else {
+                img.style.display = "none";
+                img.removeAttribute("src");
+            }
+        }
+
+        function nextQuestion() {
+            if (current >= questions.length) return;
+
+            const q = questions[current];
+            const msg = document.getElementById("message");
+            const buttons = document.querySelectorAll(".answer-btn");
+
+            if (!checked) {
+                if (selected == null) {
+                    msg.innerText = "Najpierw wybierz odpowiedź";
+                    return;
+                }
+
+                checked = true;
+
+                let correctBtn = null;
+                let selectedBtn = null;
+
+                buttons.forEach(btn => {
+                    const letter = btn.dataset.letter;
+                    if (letter === q.Correct) correctBtn = btn;
+                    if (letter === selected) selectedBtn = btn;
+                });
+
+                if (selected === q.Correct) {
+                    score++;
+                    correctBtn.classList.add("correct");
+                    msg.innerText = "Poprawna odpowiedź";
+                } else {
+                    selectedBtn.classList.add("wrong");
+                    correctBtn.classList.add("correct");
+                    msg.innerText = "Błędna odpowiedź";
+                }
+
+                return;
+            }
+
+            current++;
+            document.getElementById("message").innerText = "";
+            renderQuestion();
+        }
+
+        loadQuestions();
+    </script>
+</body>
+</html>
